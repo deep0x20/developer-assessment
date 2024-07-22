@@ -1,16 +1,18 @@
 import './App.css'
 import { Image, Alert, Button, Container, Row, Col, Form, Table, Stack } from 'react-bootstrap'
 import React, { useState, useEffect } from 'react'
+import axios from 'axios'
 
-const axios = require('axios')
+const host = 'https://localhost:5001/'
 
 const App = () => {
-  const [description, setDescription] = useState('')
-  const [items, setItems] = useState([])
+    const [description, setDescription] = useState('')
+    const [error, seterror] = useState('')
+    const [items, setItems] = useState([])
 
-  useEffect(() => {
-    // todo
-  }, [])
+    useEffect(() => {
+        getItems();
+  })
 
   const renderAddTodoItemContent = () => {
     return (
@@ -28,7 +30,7 @@ const App = () => {
               onChange={handleDescriptionChange}
             />
           </Col>
-        </Form.Group>
+            </Form.Group>
         <Form.Group as={Row} className="mb-3 offset-md-2" controlId="formAddTodoItem">
           <Stack direction="horizontal" gap={2}>
             <Button variant="primary" onClick={() => handleAdd()}>
@@ -79,37 +81,66 @@ const App = () => {
     )
   }
 
-  const handleDescriptionChange = (event) => {
-    // todo
+    const handleDescriptionChange = (event) => {
+        setDescription(event.target.value)
   }
 
   async function getItems() {
     try {
-      alert('todo')
+        axios.get(host + 'api/TodoItems')
+            .then((response) => { setItems(response.data) })
+            .catch((error) => {
+                handleError(error);
+            });
     } catch (error) {
       console.error(error)
     }
   }
 
-  async function handleAdd() {
-    try {
-      alert('todo')
-    } catch (error) {
-      console.error(error)
+    async function handleAdd() {
+       seterror('');
+        try {
+            axios.post(host + 'api/TodoItems', {
+                Description: description,
+                IsCompleted: false
+            }).then(() => {
+                setDescription('');
+                getItems();
+            }).catch((error) => {
+                handleError(error);
+            });
+       } catch (error) {
+           console.error(error)
     }
   }
 
   function handleClear() {
-    setDescription('')
+      seterror('');
+      setDescription('')
   }
 
   async function handleMarkAsComplete(item) {
-    try {
-      alert('todo')
+     seterror('');
+     try {
+         axios.put(host + 'api/TodoItems/' + item.id, {
+             Id: item.id,
+             Description: item.description,
+             IsCompleted: true
+         }).then(() => {
+             getItems();
+         }).catch((error) => {
+             handleError(error);
+         });
     } catch (error) {
       console.error(error)
     }
-  }
+    }
+
+    async function handleError(error) {
+        if (error.response) {
+            seterror(error.response.data);
+        }
+    }
 
   return (
     <div className="App">
@@ -141,7 +172,15 @@ const App = () => {
               </ol>
             </Alert>
           </Col>
-        </Row>
+              </Row>
+              <Row>
+                  <Col>
+                      {error ?
+                          <Alert variant="danger">
+                              {error}
+                          </Alert> : null}
+                  </Col>
+              </Row>
         <Row>
           <Col>{renderAddTodoItemContent()}</Col>
         </Row>
