@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using TodoList.Api.DAL;
 
 namespace TodoList.Api.Controllers
 {
@@ -11,28 +12,28 @@ namespace TodoList.Api.Controllers
     [ApiController]
     public class TodoItemsController : ControllerBase
     {
-        private readonly TodoContext _context;
+        private readonly IRepository<TodoItem> _repository;
         private readonly ILogger<TodoItemsController> _logger;
 
-        public TodoItemsController(TodoContext context, ILogger<TodoItemsController> logger)
+        public TodoItemsController(IRepository<TodoItem> repository, ILogger<TodoItemsController> logger)
         {
-            _context = context;
+            _repository = repository;
             _logger = logger;
         }
 
         // GET: api/TodoItems
         [HttpGet]
-        public async Task<IActionResult> GetTodoItems()
+        public IActionResult Get()
         {
-            var results = await _context.TodoItems.Where(x => !x.IsCompleted).ToListAsync();
+            var results = _repository.Get().Where(t => t.IsCompleted == false);
             return Ok(results);
         }
 
         // GET: api/TodoItems/...
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetTodoItem(Guid id)
+        public IActionResult Get(Guid id)
         {
-            var result = await _context.TodoItems.FindAsync(id);
+            var result = _repository.Get(id);
 
             if (result == null)
             {
@@ -44,22 +45,21 @@ namespace TodoList.Api.Controllers
 
         // PUT: api/TodoItems/... 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutTodoItem(Guid id, TodoItem todoItem)
+        public IActionResult Put(Guid id, TodoItem todoItem)
         {
             if (id != todoItem.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(todoItem).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                _repository.Update(todoItem);    
+                _repository.SaveChanges();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!TodoItemIdExists(id))
+                if (_repository.Get(id) == null)
                 {
                     return NotFound();
                 }
@@ -74,7 +74,7 @@ namespace TodoList.Api.Controllers
 
         // POST: api/TodoItems 
         [HttpPost]
-        public async Task<IActionResult> PostTodoItem(TodoItem todoItem)
+        public IActionResult Post(TodoItem todoItem)
         {
             if (string.IsNullOrEmpty(todoItem?.Description))
             {
@@ -85,20 +85,15 @@ namespace TodoList.Api.Controllers
                 return BadRequest("Description already exists");
             } 
 
-            _context.TodoItems.Add(todoItem);
-            await _context.SaveChangesAsync();
+            _repository.Add(todoItem);
+            _repository.SaveChanges();
              
-            return CreatedAtAction(nameof(GetTodoItem), new { id = todoItem.Id }, todoItem);
+            return CreatedAtAction(nameof(Post), new { id = todoItem.Id }, todoItem);
         } 
-
-        private bool TodoItemIdExists(Guid id)
-        {
-            return _context.TodoItems.Any(x => x.Id == id);
-        }
 
         private bool TodoItemDescriptionExists(string description)
         {
-            return _context.TodoItems
+            return _repository.Get()
                    .Any(x => x.Description.ToLowerInvariant() == description.ToLowerInvariant() && !x.IsCompleted);
         }
     }
